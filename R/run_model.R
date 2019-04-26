@@ -24,10 +24,11 @@
 #' @param alpha.prior Dirichlet prior on p.global (default = 1, uninformative)
 #' @param resid_err include residual error in the model?
 #' @param process_err include process error in the model?
+#' @param parallel_threads how many threads to use (default = 1, run in serial)
 #'
 #' @return jags.1, a \code{rjags} model object
 #'
-run_model <- function(run, mix, source, discr, model_filename, alpha.prior = 1, resid_err, process_err){
+run_model <- function(run, mix, source, discr, model_filename, alpha.prior = 1, resid_err, process_err, parallel_threads = 1){
 #  resid_err <- mixsiar$resid_err
 #  process_err <- mixsiar$process_err
 
@@ -216,27 +217,32 @@ run_model <- function(run, mix, source, discr, model_filename, alpha.prior = 1, 
   #############################################################################
   # Call JAGS
   #############################################################################
-  # jags.1 <- R2jags::jags(jags.data, 
-  #                                 inits=jags.inits, 
-  #                                 parameters.to.save = jags.params, 
-  #                                 model.file = model_filename,
-  #                                 n.chains = mcmc$chains, 
-  #                                 n.burnin = mcmc$burn, 
-  #                                 n.thin = mcmc$thin,
-  #                                 n.iter = mcmc$chainLength, 
-  #                                 DIC = mcmc$calcDIC)
-
-  jags.1 <- do.call(R2jags::jags.parallel,
-                    list(data = jags.data,
-                         inits = jags.inits,
-                         parameters.to.save = jags.params,
-                         model.file = model_filename,
-                         n.chains = mcmc$chains,
-                         n.burnin = mcmc$burn,
-                         n.thin = mcmc$thin,
-                         n.iter = mcmc$chainLength,
-                         DIC = mcmc$calcDIC)
-                    ) # end do.call
+  # If we don't need parallelism, then use the package-provided implementation
+  # rather than falling back to our own implementation
+  if (parallel_threads == 1) {
+    jags.1 <- R2jags::jags(jags.data, 
+                           inits=jags.inits, 
+                           parameters.to.save = jags.params, 
+                           model.file = model_filename,
+                           n.chains = mcmc$chains, 
+                           n.burnin = mcmc$burn, 
+                           n.thin = mcmc$thin,
+                           n.iter = mcmc$chainLength, 
+                           DIC = mcmc$calcDIC)
+  } else {
+    jags.1 <- do.call(jags.parallel,
+                      list(data = jags.data,
+                           inits = jags.inits,
+                           parameters.to.save = jags.params,
+                           model.file = model_filename,
+                           n.chains = mcmc$chains,
+                           n.burnin = mcmc$burn,
+                           n.thin = mcmc$thin,
+                           n.iter = mcmc$chainLength,
+                           n.cluster = parallel_threads,
+                           DIC = mcmc$calcDIC)
+                      ) # end do.call
+  }
 
 
 
